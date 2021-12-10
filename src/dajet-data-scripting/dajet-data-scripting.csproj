@@ -8,8 +8,8 @@
     <Product>DaJet Data Scripting</Product>
     <Copyright>Zhichkin © 2020</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/zhichkin/dajet-scripting</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/zhichkin/dajet-scripting</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/zhichkin/dajet-data-scripting</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/zhichkin/dajet-data-scripting</RepositoryUrl>
     <Description>DaJet Data Scripting is a 1C:Enterprise 8 query language extension library.
 The library is designed to use the full power of T-SQL with 1C: Enterprise 8.
 Microsoft SQL Server supported only.</Description>
