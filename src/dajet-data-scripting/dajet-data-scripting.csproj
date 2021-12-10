@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <AssemblyName>DaJet.Data.Scripting</AssemblyName>
+    <RootNamespace>DaJet.Data.Scripting</RootNamespace>
+    <Authors>Zhichkin</Authors>
+    <Product>DaJet Data Scripting</Product>
+    <Copyright>Zhichkin © 2020</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/zhichkin/dajet-scripting</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/zhichkin/dajet-scripting</RepositoryUrl>
+    <Description>DaJet Scripting is a 1C:Enterprise 8 query language extension library.
+The library is designed to use the full power of T-SQL with 1C: Enterprise 8.
+Microsoft SQL Server supported only.</Description>
+    <PackageReleaseNotes>DaJet Scripting is a 1C:Enterprise 8 query language extension library.
+The library is designed to use the full power of T-SQL with 1C: Enterprise 8.
+Microsoft SQL Server supported only.</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DaJet.Metadata" Version="3.1.7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.SqlServer.TransactSql.ScriptDom">
+      <HintPath>..\..\lib\Microsoft.SqlServer.TransactSql.ScriptDom.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
