@@ -10,10 +10,10 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/zhichkin/dajet-scripting</PackageProjectUrl>
     <RepositoryUrl>https://github.com/zhichkin/dajet-scripting</RepositoryUrl>
-    <Description>DaJet Scripting is a 1C:Enterprise 8 query language extension library.
+    <Description>DaJet Data Scripting is a 1C:Enterprise 8 query language extension library.
 The library is designed to use the full power of T-SQL with 1C: Enterprise 8.
 Microsoft SQL Server supported only.</Description>
-    <PackageReleaseNotes>DaJet Scripting is a 1C:Enterprise 8 query language extension library.
+    <PackageReleaseNotes>DaJet Data Scripting is a 1C:Enterprise 8 query language extension library.
 The library is designed to use the full power of T-SQL with 1C: Enterprise 8.
 Microsoft SQL Server supported only.</PackageReleaseNotes>
   </PropertyGroup>
