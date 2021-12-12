@@ -1,5 +1,4 @@
-﻿using DaJet.Metadata;
-using DaJet.Metadata.Model;
+﻿using DaJet.Metadata.Model;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System;
 using System.Collections.Generic;
