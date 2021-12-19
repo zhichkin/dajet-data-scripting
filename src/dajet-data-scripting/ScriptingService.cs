@@ -26,14 +26,20 @@ namespace DaJet.Data.Scripting
         string PrepareScript(string script, Dictionary<string, object> parameters, out IList<ParseError> errors);
         string ExecuteJson(string script, out IList<ParseError> errors);
         string ExecuteScript(string script, out IList<ParseError> errors);
-        TSqlFragment ParseScript(string script, out IList<ParseError> errors);
         void ExecuteBatch(string script, out IList<ParseError> errors);
+
+        TSqlFragment ParseScript(string script, out IList<ParseError> errors);
+        TSqlFragment ParseScript(TextReader reader, out IList<ParseError> errors);
+        TSqlFragment ParseScript(TextReader reader, out IList<ParseError> errors, int startOffset, int startLine, int startColumn);
+        
+        List<CompletionItem> RequestCompletion(TextReader reader, int offset, out IList<ParserWarning> warnings);
     }
     public sealed class ScriptingService : IScriptingService
     {
         private TSql150Parser Parser { get; }
         private Sql150ScriptGenerator Generator { get; }
         private IScriptExecutor ScriptExecutor { get; }
+        private CompletionService CompletionService { get; }
 
         public ScriptingService()
         {
@@ -45,6 +51,8 @@ namespace DaJet.Data.Scripting
             });
 
             ScriptExecutor = new ScriptExecutor();
+
+            CompletionService = new CompletionService(this);
         }
 
         public InfoBase MainInfoBase { get; set; }
@@ -99,6 +107,14 @@ namespace DaJet.Data.Scripting
         {
             return Parser.Parse(new StringReader(script), out errors);
         }
+        public TSqlFragment ParseScript(TextReader reader, out IList<ParseError> errors)
+        {
+            return Parser.Parse(reader, out errors);
+        }
+        public TSqlFragment ParseScript(TextReader reader, out IList<ParseError> errors, int startOffset, int startLine, int startColumn)
+        {
+            return Parser.Parse(reader, out errors, startOffset, startLine, startColumn);
+        }
 
         public string ExecuteJson(string script, out IList<ParseError> errors)
         {
@@ -117,8 +133,6 @@ namespace DaJet.Data.Scripting
 
             ScriptExecutor.ExecuteScript((TSqlScript)syntaxTree);
         }
-
-        
 
         private bool IsSpecialSchema(string schemaName)
         {
@@ -306,6 +320,20 @@ namespace DaJet.Data.Scripting
                     }
                 }
             }
+        }
+
+        public List<CompletionItem> RequestCompletion(TextReader reader, int offset, out IList<ParserWarning> warnings)
+        {
+            warnings = new List<ParserWarning>();
+
+            TSqlFragment syntaxTree = Parser.Parse(reader, out IList<ParseError> errors);
+
+            foreach (ParseError error in errors)
+            {
+                warnings.Add(new ParserWarning(error.Number, error.Offset, error.Line, error.Column, error.Message));
+            }
+
+            return CompletionService.GetCompletionItems(syntaxTree, offset);
         }
     }
 }

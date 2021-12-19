@@ -5,7 +5,11 @@ VisualStudioVersion = 16.0.31112.23
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dajet-data-scripting", "dajet-data-scripting\dajet-data-scripting.csproj", "{2575B4C2-D98A-48BF-90AF-4371150D97BF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dajet-data-scripting-test", "dajet-data-scripting-test\dajet-data-scripting-test.csproj", "{9AA47DE5-123A-4334-9EF9-ABAFBFF24FD5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dajet-data-scripting-test", "dajet-data-scripting-test\dajet-data-scripting-test.csproj", "{9AA47DE5-123A-4334-9EF9-ABAFBFF24FD5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dajet-data-scripting-wpf", "dajet-data-scripting-wpf\dajet-data-scripting-wpf.csproj", "{AA5C844B-43AD-407A-82A1-C191D5DC0F7A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "dajet-data-scripting-editor", "dajet-data-scripting-editor\dajet-data-scripting-editor.csproj", "{7AD4E2FF-2AED-43CA-8556-617C89387D23}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +25,14 @@ Global
 		{9AA47DE5-123A-4334-9EF9-ABAFBFF24FD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9AA47DE5-123A-4334-9EF9-ABAFBFF24FD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9AA47DE5-123A-4334-9EF9-ABAFBFF24FD5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AA5C844B-43AD-407A-82A1-C191D5DC0F7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AA5C844B-43AD-407A-82A1-C191D5DC0F7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AA5C844B-43AD-407A-82A1-C191D5DC0F7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AA5C844B-43AD-407A-82A1-C191D5DC0F7A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7AD4E2FF-2AED-43CA-8556-617C89387D23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7AD4E2FF-2AED-43CA-8556-617C89387D23}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7AD4E2FF-2AED-43CA-8556-617C89387D23}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7AD4E2FF-2AED-43CA-8556-617C89387D23}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

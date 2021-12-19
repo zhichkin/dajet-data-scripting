@@ -182,5 +182,22 @@ namespace DaJet.Data.Scripting.Test
             Console.WriteLine();
             Console.WriteLine(json);
         }
+
+        [TestMethod] public void Parse_Script()
+        {
+            string script = "SELECT  FROM ; INSERT [table1] (name) SELECT @name;";
+
+            TSqlFragment sql = ScriptingService.ParseScript(script, out IList<ParseError> errors);
+
+            string errorMessage = string.Empty;
+            foreach (ParseError error in errors)
+            {
+                errorMessage += error.Message + Environment.NewLine;
+            }
+
+            //Console.WriteLine(sql);
+            //Console.WriteLine();
+            Console.WriteLine(errorMessage);
+        }
     }
 }
