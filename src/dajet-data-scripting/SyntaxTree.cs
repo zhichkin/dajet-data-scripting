@@ -46,6 +46,27 @@ namespace DaJet.Data.Scripting
             }
             return Ancestor<T>();
         }
+        public ITableScopeProvider TableScopeProvider()
+        {
+            if (this is ITableScopeProvider self)
+            {
+                return self;
+            }
+
+            ISyntaxNode ancestor = Parent;
+
+            while (ancestor != null)
+            {
+                if (ancestor is ITableScopeProvider)
+                {
+                    break;
+                }
+                
+                ancestor = ancestor.Parent;
+            }
+
+            return (ITableScopeProvider)ancestor;
+        }
     }
     public sealed class ScriptNode : SyntaxNode
     {
@@ -61,15 +82,40 @@ namespace DaJet.Data.Scripting
         // TODO: special property visitor plus to type visitors !?
         // TODO: EnterContext + ExitContext !?
     }
-    public sealed class QueryNode : StatementNode
+    
+    
+    
+    public class SelectNode : SyntaxNode, ITableScopeProvider
     {
-        public string Alias { get; set; }
+        public SelectNode() { Where.Parent = this; }
+        public WhereNode Where { get; } = new WhereNode();
+        public List<SyntaxNode> Columns { get; } = new List<SyntaxNode>();
+        public List<SyntaxNode> Tables { get; } = new List<SyntaxNode>();
+        public List<SyntaxNode> GetTableColumns()
+        {
+            throw new NotImplementedException();
+        }
     }
     public sealed class TableNode : SyntaxNode // Документ.ПоступлениеТоваровУслуг => NamedTableReference
     {
         public string Name { get; set; }
         public string Alias { get; set; }
         public ApplicationObject ApplicationObject { get; set; }
+    }
+    public sealed class QueryNode : SelectNode
+    {
+        public string Alias { get; set; }
+    }
+    public sealed class JoinNode : SyntaxNode, ITableScopeProvider
+    {
+        public JoinNode() { Where.Parent = this; }
+        public WhereNode Where { get; } = new WhereNode();
+        public JoinType JoinType { get; set; } = JoinType.Inner;
+        public List<SyntaxNode> Tables { get; } = new List<SyntaxNode>();
+        public List<SyntaxNode> GetTableColumns()
+        {
+            throw new NotImplementedException();
+        }
     }
     public sealed class ColumnNode : SyntaxNode // Т.Ссылка AS [Ссылка] => SelectScalarExpression
     {
@@ -78,7 +124,7 @@ namespace DaJet.Data.Scripting
     }
     public sealed class WhereNode : SyntaxNode
     {
-        public List<ISyntaxNode> Columns { get; } = new List<ISyntaxNode>();
+        public List<SyntaxNode> Columns { get; } = new List<SyntaxNode>();
     }
     public sealed class FunctionNode : SyntaxNode // Т.Ссылка.type() => FunctionCall
     {
@@ -88,5 +134,20 @@ namespace DaJet.Data.Scripting
     {
         public MetadataProperty MetadataProperty { get; set; } // source cast value
         public ApplicationObject ApplicationObject { get; set; } // target cast type
+    }
+
+    public enum JoinType
+    {
+        Inner = 0,
+        Left  = 1,
+        Right = 2,
+        Full  = 3
+    }
+
+    public interface ITableScopeProvider
+    {
+        WhereNode Where { get; }
+        List<SyntaxNode> Tables { get; }
+        List<SyntaxNode> GetTableColumns();
     }
 }

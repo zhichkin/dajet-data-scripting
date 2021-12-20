@@ -11,6 +11,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using System.Xml;
 
 namespace DaJet.Data.Scripting.Wpf
@@ -20,10 +21,27 @@ namespace DaJet.Data.Scripting.Wpf
         private ToolTip toolTip = new ToolTip();
         private CompletionWindow completionWindow;
 
+        private readonly IErrorHandler ErrorHandler;
         private readonly IScriptingService ScriptingService;
-        public ScriptingClient(IScriptingService service)
+
+        private const string CATALOG_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/Справочник.png";
+        private const string DOCUMENT_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/Документ.png";
+        private const string INFOREG_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/РегистрСведений.png";
+        private const string ACCUMREG_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/РегистрНакопления.png";
+        private const string EXCHANGE_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/ПланОбмена.png";
+        private const string DEFAULT_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/ВложеннаяТаблица.png";
+
+        private readonly BitmapImage CATALOG_ICON = new BitmapImage(new Uri(CATALOG_ICON_PATH));
+        private readonly BitmapImage DOCUMENT_ICON = new BitmapImage(new Uri(DOCUMENT_ICON_PATH));
+        private readonly BitmapImage INFOREG_ICON = new BitmapImage(new Uri(INFOREG_ICON_PATH));
+        private readonly BitmapImage ACCUMREG_ICON = new BitmapImage(new Uri(ACCUMREG_ICON_PATH));
+        private readonly BitmapImage EXCHANGE_ICON = new BitmapImage(new Uri(EXCHANGE_ICON_PATH));
+        private readonly BitmapImage DEFAULT_ICON = new BitmapImage(new Uri(DEFAULT_ICON_PATH));
+
+        public ScriptingClient(IScriptingService service, IErrorHandler errorHandler)
         {
             ScriptingService = service;
+            ErrorHandler = errorHandler;
         }
 
         public IHighlightingDefinition GetSyntaxHighlightingDefinition()
@@ -44,6 +62,16 @@ namespace DaJet.Data.Scripting.Wpf
             int line = textArea.Caret.Line;
             int offset = textArea.Caret.Offset;
 
+            TextReader reader = textArea.Document.CreateReader();
+            List<CompletionItem> completions = ScriptingService.RequestCompletion(reader, offset, out IList<ParserWarning> warnings);
+
+            ReportParserWarnings(warnings);
+
+            if (completions == null || completions.Count == 0)
+            {
+                return;
+            }
+
             completionWindow = new CompletionWindow(textArea)
             {
                 MinWidth = 300D,
@@ -52,23 +80,23 @@ namespace DaJet.Data.Scripting.Wpf
             IList<ICompletionData> data = completionWindow.CompletionList.CompletionData;
             data.Clear();
 
-            TextReader reader = textArea.Document.CreateReader();
-            List<CompletionItem> completions = ScriptingService.RequestCompletion(reader, offset, out IList<ParserWarning> warnings);
             foreach (CompletionItem item in completions)
             {
-                data.Add(new CompletionData(item.Value));
-            }
-            if (warnings.Count > 0)
-            {
-                data.Add(new CompletionData("Warnings:"));
-                foreach (ParserWarning warning in warnings)
-                {
-                    data.Add(new CompletionData(warning.Message));
-                }
+                BitmapImage icon = GetIconByItemType(item.ItemType);
+                data.Add(new CompletionData(item.Value, item.Offset, item.Length, icon));
             }
 
             completionWindow.Show();
             completionWindow.Closed += delegate { completionWindow = null; };
+        }
+        private BitmapImage GetIconByItemType(string itemType)
+        {
+            if (itemType == "Справочник") return CATALOG_ICON;
+            else if (itemType == "Документ") return DOCUMENT_ICON;
+            else if (itemType == "РегистрСведений") return INFOREG_ICON;
+            else if (itemType == "РегистрНакопления") return ACCUMREG_ICON;
+            else if (itemType == "ПланОбмена") return EXCHANGE_ICON;
+            return DEFAULT_ICON;
         }
         public void TextArea_TextEnteringHandler(object sender, TextCompositionEventArgs e)
         {
@@ -109,6 +137,29 @@ namespace DaJet.Data.Scripting.Wpf
         public void TextView_MouseHoverStoppedHandler(object sender, MouseEventArgs e)
         {
             toolTip.IsOpen = false;
+        }
+
+        private void ReportParserWarnings(IList<ParserWarning> warnings)
+        {
+            string message = string.Empty;
+
+            foreach (ParserWarning warning in warnings)
+            {
+                if (string.IsNullOrEmpty(message))
+                {
+                    message = GetWarningMessage(warning);
+                }
+                else
+                {
+                    message += Environment.NewLine + GetWarningMessage(warning);
+                }
+            }
+
+            ErrorHandler.HandleError(message);
+        }
+        private string GetWarningMessage(ParserWarning warning)
+        {
+            return warning.Message + ", line " + warning.Line.ToString() + ", column " + warning.Column.ToString();
         }
 
         public SyntaxNode BuildSyntaxTree(TextReader source, out IList<ParserWarning> warnings)

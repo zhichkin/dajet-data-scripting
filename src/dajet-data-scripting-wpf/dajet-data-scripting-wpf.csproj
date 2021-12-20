@@ -8,10 +8,28 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="images\ВложеннаяТаблица.png" />
+    <None Remove="images\Документ.png" />
+    <None Remove="images\Измерение.png" />
+    <None Remove="images\ПланОбмена.png" />
+    <None Remove="images\РегистрНакопления.png" />
+    <None Remove="images\РегистрСведений.png" />
+    <None Remove="images\Реквизит.png" />
+    <None Remove="images\Ресурс.png" />
+    <None Remove="images\Справочник.png" />
     <None Remove="resources\TSQL.xshd" />
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="images\ВложеннаяТаблица.png" />
+    <Resource Include="images\Документ.png" />
+    <Resource Include="images\Измерение.png" />
+    <Resource Include="images\ПланОбмена.png" />
+    <Resource Include="images\РегистрНакопления.png" />
+    <Resource Include="images\РегистрСведений.png" />
+    <Resource Include="images\Реквизит.png" />
+    <Resource Include="images\Ресурс.png" />
+    <Resource Include="images\Справочник.png" />
     <EmbeddedResource Include="resources\TSQL.xshd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>

@@ -2,6 +2,7 @@
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -34,6 +35,7 @@ namespace DaJet.Data.Scripting
         
         SyntaxNode BuildSyntaxTree(TextReader reader, out IList<ParserWarning> warnings);
         List<CompletionItem> RequestCompletion(TextReader reader, int offset, out IList<ParserWarning> warnings);
+        List<ApplicationObject> MatchApplicationObjects(string identifier);
     }
     public sealed class ScriptingService : IScriptingService
     {
@@ -366,6 +368,76 @@ namespace DaJet.Data.Scripting
             SyntaxTreeBuilder builder = new SyntaxTreeBuilder();
             builder.Build(script, out SyntaxNode root);
             return root;
+        }
+        public List<ApplicationObject> MatchApplicationObjects(string identifier)
+        {
+            List<ApplicationObject> list = new List<ApplicationObject>();
+
+            string[] names = identifier.Split('.', StringSplitOptions.RemoveEmptyEntries);
+
+            if (names.Length < 2)
+            {
+                return list;
+            }
+
+            Dictionary<Guid, ApplicationObject> collection = GetCollection(MainInfoBase, names[0]);
+            if (collection == null)
+            {
+                return list;
+            }
+
+            if (names.Length == 2)
+            {
+                return MatchApplicationObjects(collection, names[1]);
+            }
+
+            ApplicationObject entity = collection.Values.Where(item => item.Name == names[1]).FirstOrDefault();
+            if (entity == null)
+            {
+                return list;
+            }
+
+            return GetTableParts(entity);
+        }
+        private List<ApplicationObject> MatchApplicationObjects(Dictionary<Guid, ApplicationObject> collection, string pattern)
+        {
+            List<ApplicationObject> list = new List<ApplicationObject>();
+
+            CultureInfo culture;
+            try
+            {
+                culture = CultureInfo.GetCultureInfo("ru-RU");
+            }
+            catch (CultureNotFoundException)
+            {
+                culture = CultureInfo.CurrentUICulture;
+            }
+
+            foreach (ApplicationObject item in collection.Values)
+            {
+                //if (item.Name.StartsWith(pattern, true, culture))
+                //{
+                //    list.Add(item); // Поиск по первым символам
+                //}
+
+                if (culture.CompareInfo.IndexOf(item.Name, pattern, CompareOptions.IgnoreCase) >= 0)
+                {
+                    list.Add(item); // Поиск по частичному соответствию
+                }
+            }
+
+            return list;
+        }
+        private List<ApplicationObject> GetTableParts(ApplicationObject entity)
+        {
+            List<ApplicationObject> list = new List<ApplicationObject>();
+
+            foreach (TablePart item in entity.TableParts)
+            {
+                list.Add(item);
+            }
+
+            return list;
         }
     }
 }

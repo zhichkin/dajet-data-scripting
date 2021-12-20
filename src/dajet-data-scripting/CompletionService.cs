@@ -1,4 +1,5 @@
-﻿using Microsoft.SqlServer.TransactSql.ScriptDom;
+﻿using DaJet.Metadata.Model;
+using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System.Collections.Generic;
 
 namespace DaJet.Data.Scripting
@@ -10,55 +11,93 @@ namespace DaJet.Data.Scripting
         {
             ScriptingService = scripting;
         }
-        internal List<CompletionItem> GetCompletionItems(TSqlFragment script, int offset)
+        internal List<CompletionItem> GetCompletionItems(TSqlFragment fragment, int offset)
         {
-            List<CompletionItem> list = new List<CompletionItem>();
-
-            CompletionContext context = GetCompletionContext(script, offset);
-
-            if (context == null || context.Token == null)
+            CompletionContext context = GetCompletionContext(fragment, offset);
+            if (context != null && context.SyntaxNode is TableNode table)
             {
-                return list;
+                return GetTableCompletionItems(context, table.Name);
             }
 
-            if (context.Token.TokenType == TSqlTokenType.Dot ||
-                context.Token.TokenType == TSqlTokenType.Variable || 
-                context.Token.TokenType == TSqlTokenType.Identifier ||
-                context.Token.TokenType == TSqlTokenType.QuotedIdentifier)
+            if (fragment is TSqlScript script && script.Batches != null && script.Batches.Count == 0)
             {
-                if (context.Keyword != null && context.Keyword.TokenType == TSqlTokenType.As)
+                context = GetCompletionContextFromTokenStream(script, offset);
+
+                if (context != null)
                 {
-                    return list;
+                    return GetTableCompletionItems(context, ((TableNode)context.SyntaxNode).Name);
                 }
-
-                string identifier = context.Token.Text;
-                
-                TSqlParserToken token = TakeLeftOne(script.ScriptTokenStream, context.Token);
-
-                while (token != null &&
-                    (token.TokenType == TSqlTokenType.Dot ||
-                    token.TokenType == TSqlTokenType.Identifier ||
-                    token.TokenType == TSqlTokenType.QuotedIdentifier))
-                {
-                    identifier = token.Text + identifier;
-                    token = TakeLeftOne(script.ScriptTokenStream, token);
-                }
-
-                token = TakeRightOne(script.ScriptTokenStream, context.Token);
-
-                while (token != null &&
-                    (token.TokenType == TSqlTokenType.Dot ||
-                    token.TokenType == TSqlTokenType.Identifier ||
-                    token.TokenType == TSqlTokenType.QuotedIdentifier))
-                {
-                    identifier += token.Text;
-                    token = TakeRightOne(script.ScriptTokenStream, token);
-                }
-
-                list.Add(new CompletionItem($"{context.Keyword?.Text} = {identifier}"));
             }
 
-            return list;
+            return new List<CompletionItem>();
+        }
+        private string GetCompletionItemType(ApplicationObject item)
+        {
+            if (item is Catalog) return "Справочник";
+            else if (item is Document) return "Документ";
+            else if (item is InformationRegister) return "РегистрСведений";
+            else if (item is AccumulationRegister) return "РегистрНакопления";
+            else if (item is Publication) return "ПланОбмена";
+            return string.Empty;
+        }
+        private CompletionContext GetCompletionContext(TSqlFragment script, int offset)
+        {
+            if (script == null || script.ScriptTokenStream == null || script.ScriptTokenStream.Count == 0)
+            {
+                return null;
+            }
+
+            SyntaxTreeBuilder builder = new SyntaxTreeBuilder()
+            {
+                CursorOffset = offset
+            };
+            builder.Build((TSqlScript)script, out SyntaxNode root);
+
+            return new CompletionContext((ScriptNode)root,
+                builder.CursorOffset,
+                builder.FragmentOffset,
+                builder.FragmentLength,
+                builder.Fragment,
+                builder.SyntaxNode);
+        }
+        private List<CompletionItem> GetEntityTypeCompletionItems(CompletionContext context)
+        {
+            List<CompletionItem> suggestions = new List<CompletionItem>();
+
+            suggestions.Add(new CompletionItem("Справочник", context.FragmentOffset, context.FragmentLength) { ItemType = "Справочник" });
+            suggestions.Add(new CompletionItem("Документ", context.FragmentOffset, context.FragmentLength) { ItemType = "Документ" });
+            suggestions.Add(new CompletionItem("РегистрСведений", context.FragmentOffset, context.FragmentLength) { ItemType = "РегистрСведений" });
+            suggestions.Add(new CompletionItem("РегистрНакопления", context.FragmentOffset, context.FragmentLength) { ItemType = "РегистрНакопления" });
+            suggestions.Add(new CompletionItem("ПланОбмена", context.FragmentOffset, context.FragmentLength) { ItemType = "ПланОбмена" });
+
+            return suggestions;
+        }
+        private List<CompletionItem> GetTableCompletionItems(CompletionContext context, string tableIdentifier)
+        {
+            List<ApplicationObject> list = ScriptingService.MatchApplicationObjects(tableIdentifier);
+
+            if (list.Count == 0)
+            {
+                return GetEntityTypeCompletionItems(context);
+            }
+
+            string itemType = GetCompletionItemType(list[0]);
+
+            List<CompletionItem> suggestions = new List<CompletionItem>();
+
+            foreach (ApplicationObject item in list)
+            {
+                suggestions.Add(new CompletionItem(item.Name, context.FragmentOffset, context.FragmentLength) { ItemType = itemType });
+            }
+
+            return suggestions;
+        }
+
+        #region "Trying to get context from token stream"
+
+        private bool IsFirstTokenToLeft(int cursorOffset, int tokenOffset, int tokenLength)
+        {
+            return (cursorOffset > tokenOffset) && ((tokenOffset + tokenLength) >= cursorOffset);
         }
         private TSqlParserToken TakeLeftOne(IList<TSqlParserToken> tokens, TSqlParserToken current)
         {
@@ -68,7 +107,7 @@ namespace DaJet.Data.Scripting
             }
 
             int index = tokens.IndexOf(current);
-            
+
             if (index == 0)
             {
                 return null;
@@ -76,7 +115,24 @@ namespace DaJet.Data.Scripting
 
             return tokens[--index];
         }
-        private TSqlParserToken TakeRightOne(IList<TSqlParserToken> tokens, TSqlParserToken current)
+        private TSqlParserToken GetCurrentToken(IList<TSqlParserToken> tokens, int offset)
+        {
+            int current = 0;
+            TSqlParserToken token;
+
+            while (current < tokens.Count)
+            {
+                token = tokens[current++]; // consume token
+
+                if (IsFirstTokenToLeft(offset, token.Offset, token.Text.Length))
+                {
+                    return token;
+                }
+            }
+
+            return null;
+        }
+        private TSqlParserToken TakeFirstKeywordToLeft(IList<TSqlParserToken> tokens, TSqlParserToken current)
         {
             if (tokens == null || tokens.Count == 0)
             {
@@ -85,45 +141,71 @@ namespace DaJet.Data.Scripting
 
             int index = tokens.IndexOf(current);
 
-            if (index == tokens.Count - 1)
+            if (index == 0)
             {
                 return null;
             }
 
-            return tokens[++index];
+            TSqlParserToken token = TakeLeftOne(tokens, current);
+
+            while (token != null)
+            {
+                if (token.IsKeyword())
+                {
+                    return token;
+                }
+                token = TakeLeftOne(tokens, token);
+            }
+
+            return null;
         }
-        private bool IsFirstTokenToLeft(int cursorOffset, int tokenOffset, int tokenLength)
+        private string TryGetFullIdentifier(IList<TSqlParserToken> tokens, TSqlParserToken current)
         {
-            return (cursorOffset > tokenOffset) && ((tokenOffset + tokenLength) >= cursorOffset);
+            string identifier = current.Text;
+
+            TSqlParserToken token = TakeLeftOne(tokens, current);
+
+            while (token != null &&
+                (token.TokenType == TSqlTokenType.Dot ||
+                token.TokenType == TSqlTokenType.Identifier ||
+                token.TokenType == TSqlTokenType.QuotedIdentifier))
+            {
+                identifier = token.Text + identifier;
+
+                token = TakeLeftOne(tokens, token);
+            }
+
+            return identifier;
         }
-        private CompletionContext GetCompletionContext(TSqlFragment script, int offset)
+        private CompletionContext GetCompletionContextFromTokenStream(TSqlFragment script, int offset)
         {
             if (script == null || script.ScriptTokenStream == null || script.ScriptTokenStream.Count == 0)
             {
                 return null;
             }
 
-            int current = 0;
-            TSqlParserToken token;
-            CompletionContext context = new CompletionContext();
-
-            while (current < script.ScriptTokenStream.Count)
+            TSqlParserToken token = GetCurrentToken(script.ScriptTokenStream, offset);
+            if (token == null || token.TokenType != TSqlTokenType.Identifier)
             {
-                token = script.ScriptTokenStream[current++]; // consume token
+                return null;
+            }
 
-                if (token.IsKeyword())
-                {
-                    context.Keyword = token;
-                }
+            TSqlParserToken keyword = TakeFirstKeywordToLeft(script.ScriptTokenStream, token);
+            if (keyword == null)
+            {
+                return null;
+            }
 
-                if (IsFirstTokenToLeft(offset, token.Offset, token.Text.Length))
-                {
-                    context.Token = token;
-                    return context;
-                }
+            if (keyword.TokenType == TSqlTokenType.From || keyword.TokenType == TSqlTokenType.Join)
+            {
+                string identifier = TryGetFullIdentifier(script.ScriptTokenStream, token);
+
+                return new CompletionContext(null, offset, token.Offset, token.Text.Length, null, new TableNode() { Name = identifier });
             }
 
             return null;
         }
+
+        #endregion
     }
 }

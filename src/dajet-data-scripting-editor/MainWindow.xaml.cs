@@ -10,7 +10,7 @@ using System.Windows;
 
 namespace DaJet.Data.Scripting.Editor
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, IErrorHandler
     {
         private FoldingManager foldingManager;
         private readonly ScriptingClient EditorService;
@@ -35,13 +35,17 @@ namespace DaJet.Data.Scripting.Editor
             scripting.UseConnectionString(metadata.ConnectionString);
             scripting.MainInfoBase = infoBase;
 
-            EditorService = new ScriptingClient(scripting);
+            EditorService = new ScriptingClient(scripting, this);
 
-            //textEditor.TextArea.TextEntered += EditorService.TextArea_TextEnteredHandler;
-            //textEditor.TextArea.TextEntering += EditorService.TextArea_TextEnteringHandler;
-            //DataObject.AddPastingHandler(textEditor.TextArea, EditorService.TextArea_TextPasteHandler);
-            //textEditor.TextArea.TextView.MouseHover += EditorService.TextView_MouseHoverHandler;
-            //textEditor.TextArea.TextView.MouseHoverStopped += EditorService.TextView_MouseHoverStoppedHandler;
+            textEditor.TextArea.TextEntered += EditorService.TextArea_TextEnteredHandler;
+            textEditor.TextArea.TextEntering += EditorService.TextArea_TextEnteringHandler;
+            DataObject.AddPastingHandler(textEditor.TextArea, EditorService.TextArea_TextPasteHandler);
+            textEditor.TextArea.TextView.MouseHover += EditorService.TextView_MouseHoverHandler;
+            textEditor.TextArea.TextView.MouseHoverStopped += EditorService.TextView_MouseHoverStoppedHandler;
+        }
+        public void HandleError(string errorMessage)
+        {
+            warningsBlock.Text = errorMessage;
         }
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
@@ -73,7 +77,14 @@ namespace DaJet.Data.Scripting.Editor
             TextReader reader = textEditor.TextArea.Document.CreateReader();
             SyntaxNode root = EditorService.BuildSyntaxTree(reader, out IList<ParserWarning> warnings);
 
+            ShowParserWarnings(warnings);
+
+            ShowScriptInfo(root);
+        }
+        private void ShowParserWarnings(IList<ParserWarning> warnings)
+        {
             warningsBlock.Text = string.Empty;
+
             foreach (ParserWarning warning in warnings)
             {
                 string message = GetWarningMessage(warning);
@@ -87,8 +98,6 @@ namespace DaJet.Data.Scripting.Editor
                     warningsBlock.Text += Environment.NewLine + message;
                 }
             }
-
-            ShowScriptInfo(root);
         }
         private string GetWarningMessage(ParserWarning warning)
         {
@@ -103,36 +112,79 @@ namespace DaJet.Data.Scripting.Editor
 
             string info = string.Empty;
 
-            foreach (StatementNode statement in script.Statements)
+            foreach (SelectNode select in script.Statements)
             {
-                info += Environment.NewLine + "SELECT";
-                foreach (ColumnNode column in statement.Columns)
-                {
-                    info += Environment.NewLine + column.Name + (string.IsNullOrEmpty(column.Alias) ? string.Empty : " AS [" + column.Alias + "]");
-                }
-                info += Environment.NewLine + "FROM";
-                foreach (SyntaxNode node in statement.Tables.Values)
-                {
-                    if (node is TableNode table)
-                    {
-                        info += Environment.NewLine + table.Name + (string.IsNullOrEmpty(table.Alias) ? string.Empty : " AS [" + table.Alias + "]");
-                    }
-                    else if (node is QueryNode query)
-                    {
-                        info += Environment.NewLine + (string.IsNullOrEmpty(query.Alias) ? string.Empty : " AS [" + query.Alias + "]");
-                    }
-                }
-                info += Environment.NewLine + "WHERE";
-                if (statement.Where != null)
-                {
-                    foreach (ColumnNode column in statement.Where.Columns)
-                    {
-                        info += Environment.NewLine + column.Name + (string.IsNullOrEmpty(column.Alias) ? string.Empty : " AS [" + column.Alias + "]");
-                    }
-                }
+                int indent = 1;
+                ShowTables(select, ref info, indent);
             }
 
             warningsBlock.Text += info;
         }
+        private void ShowTables(ITableScopeProvider scope, ref string info, int indent)
+        {
+            info += Environment.NewLine + "".PadLeft(indent, '-')
+                + scope.GetType().ToString()
+                + " - " + (scope is QueryNode q ? q.Alias : string.Empty)
+                + " : " + (scope is JoinNode join ? join.JoinType.ToString() : string.Empty);
+
+            SelectNode select = scope as SelectNode;
+
+            if (select != null)
+            {
+                info += Environment.NewLine + "".PadLeft(indent, '-') + "SELECT";
+                foreach (ColumnNode column in select.Columns)
+                {
+                    info += Environment.NewLine + "".PadLeft(indent, '-')
+                        + column.Name + (string.IsNullOrEmpty(column.Alias) ? string.Empty : " AS [" + column.Alias + "]");
+                }
+                info += Environment.NewLine + "".PadLeft(indent, '-') + "FROM";
+            }
+
+            foreach (SyntaxNode node in scope.Tables)
+            {
+                if (node is TableNode table)
+                {
+                    string alias = string.Empty;
+                    if (table.Parent is QueryNode query)
+                    {
+                        alias = query.Alias;
+                    }
+                    else
+                    {
+                        alias = table.Alias;
+                    }
+                    info += Environment.NewLine + "".PadLeft(++indent, '-')
+                        + table.Name
+                        + ((string.IsNullOrEmpty(alias) ? string.Empty : " AS [" + alias + "]")
+                        + " - (" + table.Parent.GetType().ToString() + ") + " + alias);
+                }
+                else if (node is ITableScopeProvider tsp)
+                {
+                    ShowTables(tsp, ref info, ++indent);
+                }
+            }
+
+            if (scope.Where.Columns.Count > 0)
+            {
+                info += Environment.NewLine + "".PadLeft(indent, '-') + "WHERE";
+                foreach (ColumnNode column in scope.Where.Columns)
+                {
+                    info += Environment.NewLine + "".PadLeft(indent, '-')
+                        + column.Name + (string.IsNullOrEmpty(column.Alias) ? string.Empty : " AS [" + column.Alias + "] ")
+                        + scope.GetType().ToString()
+                        + " - " + (scope is QueryNode q1 ? q1.Alias : string.Empty)
+                        + " : " + (scope is JoinNode join1 ? join1.JoinType.ToString() : string.Empty);
+                }
+            }
+        }
     }
 }
+//SELECT f1 FROM z
+//INNER JOIN
+//  (SELECT f2 FROM a
+//     LEFT JOIN b ON a.f = b.f
+//     RIGHT JOIN (SELECT f3 FROM c WHERE c.f5 = 123) AS a ON a.f = c1.f
+//     FULL JOIN (SELECT f4 FROM d) AS dt ON c.f = d.f
+//   WHERE a.f6 IS NOT NULL) AS x
+//ON z.f = x.f
+//WHERE z.f7 = "abc"

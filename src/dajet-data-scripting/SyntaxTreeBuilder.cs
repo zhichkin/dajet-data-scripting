@@ -8,13 +8,31 @@ namespace DaJet.Data.Scripting
 {
     public sealed class SyntaxTreeBuilder
     {
+        public int CursorOffset { get; set; }
+        public int FragmentOffset { get; set; }
+        public int FragmentLength { get; set; }
+        public TSqlFragment Fragment { get; set; }
+        public SyntaxNode SyntaxNode { get; set; }
         public void Build(TSqlScript script, out SyntaxNode root)
         {
             root = new ScriptNode();
-            Transform(script, root);
+            BuildSyntaxNode(script, root);
         }
-        private void Transform(TSqlFragment fragment, SyntaxNode node)
+        private bool IsEditingFragment(TSqlFragment fragment)
         {
+            return (CursorOffset > fragment.StartOffset)
+                && ((fragment.StartOffset + fragment.FragmentLength) >= CursorOffset);
+        }
+        private void BuildSyntaxNode(TSqlFragment fragment, SyntaxNode parent)
+        {
+            if (IsEditingFragment(fragment))
+            {
+                FragmentOffset = fragment.StartOffset;
+                FragmentLength = fragment.FragmentLength;
+                Fragment = fragment;
+                SyntaxNode = parent;
+            }
+
             Type type = fragment.GetType();
 
             // build children which resides in properties
@@ -46,223 +64,261 @@ namespace DaJet.Data.Scripting
                     for (int i = 0; i < list.Count; i++)
                     {
                         TSqlFragment item = (TSqlFragment)list[i];
-                        SyntaxNode sn = CreateSyntaxNode(item);
-                        if (sn != null)
-                        {
-                            AttachSyntaxNode(node, sn, item);
-                            Transform(item, sn);
-                        }
-                        else
-                        {
-                            Transform(item, node);
-                        }
+                        SyntaxNode node = CreateSyntaxNode(item, parent);
+                        BuildSyntaxNode(item, (node == null ? parent : node));
                     }
                 }
                 else
                 {
-                    SyntaxNode sn = CreateSyntaxNode((TSqlFragment)value);
-                    if (sn != null)
-                    {
-                        AttachSyntaxNode(node, sn, (TSqlFragment)value);
-                        Transform((TSqlFragment)value, sn);
-                    }
-                    else
-                    {
-                        Transform((TSqlFragment)value, node);
-                    }
+                    SyntaxNode node = CreateSyntaxNode((TSqlFragment)value, parent);
+                    BuildSyntaxNode((TSqlFragment)value, (node == null ? parent : node));
                 }
             }
         }
-        private SyntaxNode CreateSyntaxNode(TSqlFragment fragment)
+        private SyntaxNode CreateSyntaxNode(TSqlFragment fragment, SyntaxNode parent)
         {
-            SyntaxNode syntaxNode = null;
-
             if (fragment is SelectStatement)
             {
-                syntaxNode = new StatementNode();
+                return CreateSelectNode(fragment, parent);
             }
-            else if (fragment is QueryDerivedTable query) // has alias !
+            else if (fragment is QueryDerivedTable)
             {
-                QueryNode node = new QueryNode();
-
-                if (query.Alias != null)
-                {
-                    if (query.Alias.QuoteType == QuoteType.SquareBracket)
-                    {
-                        node.Alias = query.Alias.Value.TrimStart('[').TrimEnd(']');
-                    }
-                    else
-                    {
-                        node.Alias = query.Alias.Value;
-                    }
-                }
-
-                syntaxNode = node;
+                return CreateQueryNode(fragment, parent);
+            }
+            else if (fragment is QualifiedJoin)
+            {
+                return CreateJoinNode(fragment, parent);
             }
             else if (fragment is QuerySpecification)
             {
                 // TODO: nested into WHERE clause queries =)
+                // + ScalarSubqueryExpression in SELECT clause
             }
-            else if (fragment is WhereClause) // + ON = BooleanBinaryExpression
+            else if (fragment is NamedTableReference)
             {
-                syntaxNode = new WhereNode();
+                return CreateTableNode(fragment, parent);
             }
-            else if (fragment is SelectScalarExpression select)
+            else if (fragment is SelectScalarExpression)
             {
-                ColumnNode node = new ColumnNode();
-                if (select.Expression is ColumnReferenceExpression column)
-                {
-                    foreach (Identifier identifier in column.MultiPartIdentifier.Identifiers)
-                    {
-                        if (!string.IsNullOrEmpty(node.Name)) { node.Name += "."; }
-                        if (identifier.QuoteType == QuoteType.SquareBracket)
-                        {
-                            node.Name += identifier.Value.TrimStart('[').TrimEnd(']');
-                        }
-                        else
-                        {
-                            node.Name += identifier.Value;
-                        }
-                    }
-                }
-                if (select.ColumnName != null && select.ColumnName.Identifier != null)
-                {
-                    if (select.ColumnName.Identifier.QuoteType == QuoteType.SquareBracket)
-                    {
-                        node.Alias = select.ColumnName.Identifier.Value.TrimStart('[').TrimEnd(']');
-                    }
-                    else
-                    {
-                        node.Alias = select.ColumnName.Identifier.Value;
-                    }
-                }
-                syntaxNode = node;
+                return CreateColumnNode(fragment, parent);
             }
-            else if (fragment is NamedTableReference table)
+            else if (fragment is ColumnReferenceExpression)
             {
-                TableNode node = new TableNode();
-                if (table.Alias != null)
-                {
-                    if (table.Alias.QuoteType == QuoteType.SquareBracket)
-                    {
-                        node.Alias = table.Alias.Value.TrimStart('[').TrimEnd(']');
-                    }
-                    else
-                    {
-                        node.Alias = table.Alias.Value;
-                    }
-                }
-                foreach (Identifier identifier in table.SchemaObject.Identifiers)
-                {
-                    if (!string.IsNullOrEmpty(node.Name)) { node.Name += "."; }
-                    if (identifier.QuoteType == QuoteType.SquareBracket)
-                    {
-                        node.Name += identifier.Value.TrimStart('[').TrimEnd(']');
-                    }
-                    else
-                    {
-                        node.Name += identifier.Value;
-                    }
-                }
-                syntaxNode = node;
+                return CreateColumnNode(fragment, parent);
             }
-            else if (fragment is ColumnReferenceExpression column)
+            else if (fragment is WhereClause)
             {
-                ColumnNode node = new ColumnNode();
-                foreach (Identifier identifier in column.MultiPartIdentifier.Identifiers)
-                {
-                    if (!string.IsNullOrEmpty(node.Name)) { node.Name += "."; }
-                    if (identifier.QuoteType == QuoteType.SquareBracket)
-                    {
-                        node.Name += identifier.Value.TrimStart('[').TrimEnd(']');
-                    }
-                    else
-                    {
-                        node.Name += identifier.Value;
-                    }
-                }
-                syntaxNode = node;
+                return CreateWhereNode(fragment, parent);
+            }
+            return null;
+        }
+
+        private string GetIdentifierValue(Identifier identifier)
+        {
+            if (identifier == null)
+            {
+                return string.Empty;
             }
 
-            return syntaxNode;
+            if (identifier.QuoteType == QuoteType.SquareBracket)
+            {
+                return identifier.Value.TrimStart('[').TrimEnd(']');
+            }
+            else
+            {
+                return identifier.Value;
+            }
         }
-        private void AttachSyntaxNode(SyntaxNode parent, SyntaxNode child, TSqlFragment fragment)
+        private string GetIdentifierValue(MultiPartIdentifier identifiers)
         {
-            if (child is QueryNode _query)
+            string value = string.Empty;
+
+            foreach (Identifier identifier in identifiers.Identifiers)
             {
-                if (parent is StatementNode statement)
+                if (!string.IsNullOrEmpty(value))
                 {
-                    child.Parent = statement;
-                    statement.Tables.Add(_query.Alias, _query);
+                    value += ".";
                 }
+
+                value += GetIdentifierValue(identifier);
             }
-            else if (child is StatementNode)
+
+            return value;
+        }
+        private string GetIdentifierValue(IdentifierOrValueExpression identifier)
+        {
+            if (identifier == null)
             {
-                ScriptNode script = parent.SelfOrAncestor<ScriptNode>();
-                if (script != null)
-                {
-                    child.Parent = script;
-                    script.Statements.Add(child);
-                }
+                return string.Empty;
             }
-            else if (child is ColumnNode)
+
+            return GetIdentifierValue(identifier.Identifier);
+        }
+
+        private SyntaxNode CreateSelectNode(TSqlFragment fragment, SyntaxNode parent)
+        {
+            if (!(fragment is SelectStatement))
             {
-                if (parent is WhereNode where)
-                {
-                    child.Parent = where;
-                    where.Columns.Add(child);
-                }
-                else if (parent is QueryNode query)
-                {
-                    child.Parent = parent;
-                    query.Columns.Add(child);
-                }
-                else if (parent is StatementNode statement)
-                {
-                    child.Parent = parent;
-                    statement.Columns.Add(child);
-                }
+                return null;
             }
-            else if (child is TableNode table)
+
+            ScriptNode script = parent.SelfOrAncestor<ScriptNode>();
+            if (script == null)
             {
-                if (parent is StatementNode statement)
-                {
-                    child.Parent = statement;
-                    if (string.IsNullOrEmpty(table.Alias))
-                    {
-                        statement.Tables.Add(table.Name, table);
-                    }
-                    else
-                    {
-                        statement.Tables.Add(table.Alias, table);
-                    }
-                }
-                else if (parent is QueryNode query)
-                {
-                    child.Parent = query;
-                    if (string.IsNullOrEmpty(table.Alias))
-                    {
-                        query.Tables.Add(table.Name, table);
-                    }
-                    else
-                    {
-                        query.Tables.Add(table.Alias, table);
-                    }
-                }
+                return null;
             }
-            else if (child is WhereNode where)
+
+            SelectNode node = new SelectNode()
             {
-                if (parent is StatementNode statement)
-                {
-                    child.Parent = statement;
-                    statement.Where = where;
-                }
-                else if (parent is QueryNode query)
-                {
-                    child.Parent = query;
-                    query.Where = where;
-                }
+                Parent = script
+            };
+            script.Statements.Add(node);
+
+            return node;
+        }
+        private SyntaxNode CreateQueryNode(TSqlFragment fragment, SyntaxNode parent)
+        {
+            if (!(fragment is QueryDerivedTable query))
+            {
+                return null;
             }
+
+            ITableScopeProvider scope = parent.TableScopeProvider();
+            if (scope == null)
+            {
+                return null;
+            }
+
+            QueryNode node = new QueryNode()
+            {
+                Parent = parent,
+                Alias = GetIdentifierValue(query.Alias)
+            };
+            scope.Tables.Add(node);
+
+            return node;
+        }
+        private SyntaxNode CreateJoinNode(TSqlFragment fragment, SyntaxNode parent)
+        {
+            if (!(fragment is QualifiedJoin join))
+            {
+                return null;
+            }
+
+            ITableScopeProvider scope = parent.TableScopeProvider();
+            if (scope == null)
+            {
+                return null;
+            }
+            
+            JoinNode node = new JoinNode()
+            {
+                Parent = parent,
+                JoinType = (JoinType)join.QualifiedJoinType
+            };
+            scope.Tables.Add(node);
+
+            return node;
+        }
+        private SyntaxNode CreateTableNode(TSqlFragment fragment, SyntaxNode parent)
+        {
+            if (!(fragment is NamedTableReference table))
+            {
+                return null;
+            }
+
+            ITableScopeProvider scope = parent.TableScopeProvider();
+            if (scope == null)
+            {
+                return null;
+            }
+
+            TableNode node = new TableNode()
+            {
+                Parent = parent,
+                Name = GetIdentifierValue(table.SchemaObject),
+                Alias = GetIdentifierValue(table.Alias)
+            };
+            scope.Tables.Add(node);
+
+            return node;
+        }
+        private SyntaxNode CreateColumnNode(TSqlFragment fragment, SyntaxNode parent)
+        {
+            if (fragment is SelectScalarExpression)
+            {
+                return CreateSelectScalarNode(fragment, parent);
+            }
+            else if (fragment is ColumnReferenceExpression)
+            {
+                return CreateColumnReferenceNode(fragment, parent);
+            }
+            return null;
+        }
+        private SyntaxNode CreateSelectScalarNode(TSqlFragment fragment, SyntaxNode parent)
+        {
+            if (!(fragment is SelectScalarExpression scalar))
+            {
+                return null;
+            }
+
+            SelectNode select = parent.SelfOrAncestor<SelectNode>();
+            if (select == null)
+            {
+                return null;
+            }
+
+            ColumnNode node = new ColumnNode()
+            {
+                Parent = parent,
+                Alias = GetIdentifierValue(scalar.ColumnName)
+            };
+            select.Columns.Add(node);
+
+            return node;
+        }
+        private SyntaxNode CreateColumnReferenceNode(TSqlFragment fragment, SyntaxNode parent)
+        {
+            if (!(fragment is ColumnReferenceExpression column))
+            {
+                return null;
+            }
+
+            if (parent is ColumnNode scalar)
+            {
+                scalar.Name = GetIdentifierValue(column.MultiPartIdentifier);
+                return scalar;
+            }
+
+            ITableScopeProvider scope = parent.TableScopeProvider();
+            if (scope == null)
+            {
+                return null;
+            }
+
+            ColumnNode node = new ColumnNode()
+            {
+                Parent = scope.Where,
+                Name = GetIdentifierValue(column.MultiPartIdentifier)
+            };
+            scope.Where.Columns.Add(node);
+
+            return node;
+        }
+        private SyntaxNode CreateWhereNode(TSqlFragment fragment, SyntaxNode parent)
+        {
+            if (!(fragment is WhereClause))
+            {
+                return null;
+            }
+
+            ITableScopeProvider scope = parent.TableScopeProvider();
+            if (scope == null)
+            {
+                return null;
+            }
+
+            return scope.Where;
         }
     }
 }

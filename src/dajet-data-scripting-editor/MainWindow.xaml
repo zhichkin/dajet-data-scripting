@@ -24,7 +24,7 @@
                                Margin="5" FontFamily="Consolas" FontSize="12pt"
                                ShowLineNumbers="True" LineNumbersForeground="#FF2B91AF"/>
 
-        <TextBlock Grid.Row="2" Margin="5" Name="warningsBlock"/>
+        <TextBox Grid.Row="2" Margin="5" MaxHeight="300" Name="warningsBlock"/>
 
     </Grid>
 
