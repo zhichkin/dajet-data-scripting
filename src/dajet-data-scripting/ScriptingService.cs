@@ -32,6 +32,7 @@ namespace DaJet.Data.Scripting
         TSqlFragment ParseScript(TextReader reader, out IList<ParseError> errors);
         TSqlFragment ParseScript(TextReader reader, out IList<ParseError> errors, int startOffset, int startLine, int startColumn);
         
+        SyntaxNode BuildSyntaxTree(TextReader reader, out IList<ParserWarning> warnings);
         List<CompletionItem> RequestCompletion(TextReader reader, int offset, out IList<ParserWarning> warnings);
     }
     public sealed class ScriptingService : IScriptingService
@@ -326,14 +327,45 @@ namespace DaJet.Data.Scripting
         {
             warnings = new List<ParserWarning>();
 
-            TSqlFragment syntaxTree = Parser.Parse(reader, out IList<ParseError> errors);
+            TSqlFragment parseTree = Parser.Parse(reader, out IList<ParseError> errors);
 
             foreach (ParseError error in errors)
             {
                 warnings.Add(new ParserWarning(error.Number, error.Offset, error.Line, error.Column, error.Message));
             }
 
-            return CompletionService.GetCompletionItems(syntaxTree, offset);
+            if (parseTree == null || parseTree.ScriptTokenStream == null || parseTree.ScriptTokenStream.Count == 0)
+            {
+                return new List<CompletionItem>();
+            }
+
+            return CompletionService.GetCompletionItems(parseTree, offset);
+        }
+
+        public SyntaxNode BuildSyntaxTree(TextReader reader, out IList<ParserWarning> warnings)
+        {
+            warnings = new List<ParserWarning>();
+
+            TSqlFragment parseTree = Parser.Parse(reader, out IList<ParseError> errors);
+
+            foreach (ParseError error in errors)
+            {
+                warnings.Add(new ParserWarning(error.Number, error.Offset, error.Line, error.Column, error.Message));
+            }
+
+            if (!(parseTree is TSqlScript script))
+            {
+                return null;
+            }
+
+            if (script == null || script.ScriptTokenStream == null || script.ScriptTokenStream.Count == 0)
+            {
+                return null;
+            }
+
+            SyntaxTreeBuilder builder = new SyntaxTreeBuilder();
+            builder.Build(script, out SyntaxNode root);
+            return root;
         }
     }
 }

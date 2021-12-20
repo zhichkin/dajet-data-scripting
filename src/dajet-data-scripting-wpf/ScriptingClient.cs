@@ -110,5 +110,10 @@ namespace DaJet.Data.Scripting.Wpf
         {
             toolTip.IsOpen = false;
         }
+
+        public SyntaxNode BuildSyntaxTree(TextReader source, out IList<ParserWarning> warnings)
+        {
+            return ScriptingService.BuildSyntaxTree(source, out warnings);
+        }
     }
 }
