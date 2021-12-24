@@ -1,4 +1,5 @@
-﻿using Microsoft.SqlServer.TransactSql.ScriptDom;
+﻿using DaJet.Data.Scripting.SyntaxTree;
+using Microsoft.SqlServer.TransactSql.ScriptDom;
 
 namespace DaJet.Data.Scripting
 {

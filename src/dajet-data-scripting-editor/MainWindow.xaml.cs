@@ -1,4 +1,5 @@
-﻿using DaJet.Data.Scripting.Wpf;
+﻿using DaJet.Data.Scripting.SyntaxTree;
+using DaJet.Data.Scripting.Wpf;
 using DaJet.Metadata;
 using DaJet.Metadata.Model;
 using ICSharpCode.AvalonEdit.Folding;
@@ -37,12 +38,14 @@ namespace DaJet.Data.Scripting.Editor
 
             EditorService = new ScriptingClient(scripting, this);
 
+            textEditor.TextArea.KeyDown += EditorService.TextArea_KeyDown;
             textEditor.TextArea.TextEntered += EditorService.TextArea_TextEnteredHandler;
             textEditor.TextArea.TextEntering += EditorService.TextArea_TextEnteringHandler;
             DataObject.AddPastingHandler(textEditor.TextArea, EditorService.TextArea_TextPasteHandler);
-            textEditor.TextArea.TextView.MouseHover += EditorService.TextView_MouseHoverHandler;
-            textEditor.TextArea.TextView.MouseHoverStopped += EditorService.TextView_MouseHoverStoppedHandler;
+            //textEditor.TextArea.TextView.MouseHover += EditorService.TextView_MouseHoverHandler;
+            //textEditor.TextArea.TextView.MouseHoverStopped += EditorService.TextView_MouseHoverStoppedHandler;
         }
+
         public void HandleError(string errorMessage)
         {
             warningsBlock.Text = errorMessage;

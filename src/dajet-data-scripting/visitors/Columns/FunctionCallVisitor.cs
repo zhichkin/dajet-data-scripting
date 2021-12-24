@@ -1,4 +1,5 @@
-﻿using DaJet.Metadata.Model;
+﻿using DaJet.Data.Scripting.SyntaxTree;
+using DaJet.Metadata.Model;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System;
 using System.Collections;

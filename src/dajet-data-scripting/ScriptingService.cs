@@ -1,4 +1,5 @@
-﻿using DaJet.Metadata.Model;
+﻿using DaJet.Data.Scripting.SyntaxTree;
+using DaJet.Metadata.Model;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System;
 using System.Collections.Generic;
@@ -35,7 +36,9 @@ namespace DaJet.Data.Scripting
         
         SyntaxNode BuildSyntaxTree(TextReader reader, out IList<ParserWarning> warnings);
         List<CompletionItem> RequestCompletion(TextReader reader, int offset, out IList<ParserWarning> warnings);
+        ApplicationObject MatchApplicationObject(string identifier);
         List<ApplicationObject> MatchApplicationObjects(string identifier);
+        List<MetadataProperty> MatchProperties(ApplicationObject entity, string identifier);
     }
     public sealed class ScriptingService : IScriptingService
     {
@@ -369,6 +372,57 @@ namespace DaJet.Data.Scripting
             builder.Build(script, out SyntaxNode root);
             return root;
         }
+        public ApplicationObject MatchApplicationObject(string identifier)
+        {
+            string[] names = identifier.Split('.', StringSplitOptions.RemoveEmptyEntries);
+
+            if (names.Length < 2)
+            {
+                return null;
+            }
+
+            Dictionary<Guid, ApplicationObject> collection = GetCollection(MainInfoBase, names[0]);
+            if (collection == null)
+            {
+                return null;
+            }
+
+            ApplicationObject entity = MatchApplicationObject(collection.Values, names[1]);
+            if (entity == null)
+            {
+                return null;
+            }
+
+            if (names.Length == 2)
+            {
+                return entity;
+            }
+
+            return MatchApplicationObject(entity.TableParts, names[2]);
+        }
+        private ApplicationObject MatchApplicationObject(IEnumerable<ApplicationObject> entities, string pattern)
+        {
+            CultureInfo culture;
+            try
+            {
+                culture = CultureInfo.GetCultureInfo("ru-RU");
+            }
+            catch (CultureNotFoundException)
+            {
+                culture = CultureInfo.CurrentUICulture;
+            }
+
+            foreach (ApplicationObject entity in entities)
+            {
+                if (culture.CompareInfo.Compare(entity.Name, pattern, CompareOptions.IgnoreCase) == 0)
+                {
+                    return entity; // Поиск по точному соответствию
+                }
+            }
+
+            return null;
+        }
+
         public List<ApplicationObject> MatchApplicationObjects(string identifier)
         {
             List<ApplicationObject> list = new List<ApplicationObject>();
@@ -435,6 +489,31 @@ namespace DaJet.Data.Scripting
             foreach (TablePart item in entity.TableParts)
             {
                 list.Add(item);
+            }
+
+            return list;
+        }
+
+        public List<MetadataProperty> MatchProperties(ApplicationObject entity, string identifier)
+        {
+            List<MetadataProperty> list = new List<MetadataProperty>();
+
+            CultureInfo culture;
+            try
+            {
+                culture = CultureInfo.GetCultureInfo("ru-RU");
+            }
+            catch (CultureNotFoundException)
+            {
+                culture = CultureInfo.CurrentUICulture;
+            }
+
+            foreach (MetadataProperty property in entity.Properties)
+            {
+                if (culture.CompareInfo.IndexOf(property.Name, identifier, CompareOptions.IgnoreCase) >= 0)
+                {
+                    list.Add(property); // Поиск по частичному соответствию
+                }
             }
 
             return list;
