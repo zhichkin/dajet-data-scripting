@@ -5,9 +5,23 @@
     <RootNamespace>DaJet.Data.Scripting.Wpf</RootNamespace>
     <UseWPF>true</UseWPF>
     <AssemblyName>DaJet.Data.Scripting.Wpf</AssemblyName>
+    <Copyright>Zhichkin © 2021</Copyright>
+    <Description>1C:Enterprise 8 query script editor based on AvalonEdit.
+DaJet.Data.Scripting library is used as a language server.</Description>
+    <Authors>Zhichkin</Authors>
+    <Product>DaJet Script WPF-Editor</Product>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/zhichkin/dajet-data-scripting</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/zhichkin/dajet-data-scripting</RepositoryUrl>
+    <PackageReleaseNotes>DaJet Script WPF-Editor is a wrapper for AvalonEdit.
+It is designed to edit 1C:Enterprise 8 query scripts.
+The DaJet.Data.Scripting library is used as a language server.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="images\IntellisenseKeyword.png" />
+    <None Remove="images\KeywordIntellisense.png" />
+    <None Remove="images\KeywordSnippet.png" />
     <None Remove="images\ВложеннаяТаблица.png" />
     <None Remove="images\Документ.png" />
     <None Remove="images\Измерение.png" />
@@ -21,6 +35,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="images\KeywordIntellisense.png" />
+    <Resource Include="images\KeywordSnippet.png" />
     <Resource Include="images\ВложеннаяТаблица.png" />
     <Resource Include="images\Документ.png" />
     <Resource Include="images\Измерение.png" />

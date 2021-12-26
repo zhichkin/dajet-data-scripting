@@ -498,6 +498,11 @@ namespace DaJet.Data.Scripting
         {
             List<MetadataProperty> list = new List<MetadataProperty>();
 
+            if (entity == null)
+            {
+                return list;
+            }
+
             CultureInfo culture;
             try
             {

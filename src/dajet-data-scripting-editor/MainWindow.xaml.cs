@@ -11,7 +11,7 @@ using System.Windows;
 
 namespace DaJet.Data.Scripting.Editor
 {
-    public partial class MainWindow : Window, IErrorHandler
+    public partial class MainWindow : Window, IParserErrorHandler
     {
         private FoldingManager foldingManager;
         private readonly ScriptingClient EditorService;
@@ -46,9 +46,9 @@ namespace DaJet.Data.Scripting.Editor
             //textEditor.TextArea.TextView.MouseHoverStopped += EditorService.TextView_MouseHoverStoppedHandler;
         }
 
-        public void HandleError(string errorMessage)
+        public void HandleError(string message)
         {
-            warningsBlock.Text = errorMessage;
+            warningsBlock.Text = message;
         }
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {

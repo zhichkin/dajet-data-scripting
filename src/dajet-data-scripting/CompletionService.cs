@@ -3,6 +3,7 @@ using DaJet.Metadata.Model;
 using Microsoft.SqlServer.TransactSql.ScriptDom;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 
 namespace DaJet.Data.Scripting
 {
@@ -13,30 +14,113 @@ namespace DaJet.Data.Scripting
         {
             ScriptingService = scripting;
         }
-        internal List<CompletionItem> GetCompletionItems(TSqlFragment fragment, int offset)
+        internal CultureInfo GetCultureInfo()
         {
-            CompletionContext context = GetCompletionContext(fragment, offset);
-
-            if (context != null && context.SyntaxNode is TableNode table)
+            CultureInfo culture;
+            try
             {
-                return GetTableCompletionItems(context, table.Name);
+                culture = CultureInfo.GetCultureInfo("ru-RU");
             }
-            else if (context != null && context.SyntaxNode is ColumnNode column)
+            catch (CultureNotFoundException)
             {
-                return GetColumnCompletionItems(context, column.Name);
+                culture = CultureInfo.CurrentUICulture;
             }
+            return culture;
+        }
+        private List<string> keywords = new List<string>()
+        {
+            "SELECT",
+            "FROM",
+            "WHERE",
+            "TOP",
+            "ON",
+            "AS",
+            "INNER JOIN",
+            "LEFT JOIN",
+            "RIGHT JOIN",
+            "FULL JOIN",
+            "GROUP BY",
+            "ORDER BY",
+            "HAVING",
+            "SUM",
+            "COUNT",
+            "DISTINCT",
+            "ASC",
+            "DESC",
+            "CASE WHEN THEN ELSE END"
+        };
+        private List<string> keywords_ru = new List<string>()
+        {
+            "ыудусе", // select
+            "акщь", // from
+            "цруку", // where
+            "ещз", // top
+            "щт", // on
+            "фы", // as
+            "шттук ощшт", // inner join
+            "дуае ощшт", // left join
+            "кшпре ощшт", // right join
+            "агдд ощшт", // full join
+            "пкщгз ин", // group by
+            "щквук ин", // order by
+            "рфмштп", // having
+            "ыгь", // sum
+            "сщгте", // count
+            "вшыештсе", // distinct
+            "фыс", // asc
+            "вуыс", // desc
+            "сфыу црут" // case when
+        };
+        private string MatchKeyword(string input)
+        {
+            CultureInfo culture = GetCultureInfo();
 
-            if (fragment is TSqlScript script && script.Batches != null && script.Batches.Count == 0)
+            for (int i =0; i< keywords_ru.Count;i++)
             {
-                context = GetCompletionContextFromTokenStream(script, offset);
-
-                if (context != null)
+                if (culture.CompareInfo.IsPrefix(keywords[i], input, CompareOptions.IgnoreCase)
+                    || culture.CompareInfo.IsPrefix(keywords_ru[i], input, CompareOptions.IgnoreCase))
                 {
-                    return GetTableCompletionItems(context, ((TableNode)context.SyntaxNode).Name);
+                    return keywords[i];
                 }
             }
 
-            return new List<CompletionItem>();
+            return null;
+        }
+
+        internal List<CompletionItem> GetCompletionItems(TSqlFragment fragment, int offset)
+        {
+            List<CompletionItem> list = new List<CompletionItem>();
+
+            CompletionContext context = GetCompletionContext(fragment, offset);
+
+            if (context.Keyword != null)
+            {
+                list.Add(new CompletionItem(context.Keyword, context.FragmentOffset, context.FragmentLength) { ItemType = "Keyword" });
+            }
+
+            if (context != null && context.SyntaxNode is TableNode table)
+            {
+                list.AddRange(GetTableCompletionItems(context, table.Name));
+                return list;
+            }
+            else if (context != null && context.SyntaxNode is ColumnNode column)
+            {
+                list.AddRange(GetColumnCompletionItems(context, column.Name));
+                return list;
+            }
+
+            if (fragment is TSqlScript script && script.ScriptTokenStream != null && script.ScriptTokenStream.Count > 0)
+            {
+                context = GetCompletionContextFromTokenStream(script, offset);
+
+                if (context != null && context.SyntaxNode != null)
+                {
+                    list.AddRange(GetTableCompletionItems(context, ((TableNode)context.SyntaxNode).Name));
+                    return list;
+                }
+            }
+
+            return list;
         }
         private string GetCompletionItemType(ApplicationObject item)
         {
@@ -54,18 +138,32 @@ namespace DaJet.Data.Scripting
                 return null;
             }
 
+            CompletionContext context = null;
+
+            TSqlParserToken token = GetCurrentToken(script.ScriptTokenStream, offset);
+            if (token != null)
+            {
+                context = new CompletionContext(offset, token.Offset, token.Text.Length);
+                if (token.TokenType == TSqlTokenType.Identifier)
+                {
+                    context.Keyword = MatchKeyword(token.Text);
+                }
+            }
+
             SyntaxTreeBuilder builder = new SyntaxTreeBuilder()
             {
                 CursorOffset = offset
             };
-            builder.Build((TSqlScript)script, out SyntaxNode root);
+            builder.Build((TSqlScript)script, out _);
 
-            return new CompletionContext((ScriptNode)root,
-                builder.CursorOffset,
-                builder.FragmentOffset,
-                builder.FragmentLength,
-                builder.Fragment,
-                builder.SyntaxNode);
+            if (context == null)
+            {
+                context = new CompletionContext(builder.CursorOffset, builder.FragmentOffset, builder.FragmentLength);
+            }
+            context.Fragment = builder.Fragment;
+            context.SyntaxNode = builder.SyntaxNode;
+
+            return context;
         }
 
         private List<CompletionItem> GetTableCompletionItems(CompletionContext context, string tableIdentifier)
@@ -111,18 +209,24 @@ namespace DaJet.Data.Scripting
                 return suggestions;
             }
 
-            List<ApplicationObject> entities = new List<ApplicationObject>();
-
-            foreach (TableNode table in tables)
+            int i = 0;
+            while (i < tables.Count)
             {
+                TableNode table = tables[i];
+
                 ApplicationObject entity = ScriptingService.MatchApplicationObject(table.Name);
                 if (entity != null)
                 {
-                    entities.Add(entity);
+                    i++;
+                    table.ApplicationObject = entity;
+                }
+                else
+                {
+                    tables.RemoveAt(i);
                 }
             }
 
-            if (entities.Count == 0)
+            if (tables.Count == 0)
             {
                 return suggestions;
             }
@@ -130,13 +234,17 @@ namespace DaJet.Data.Scripting
             string[] names = columnIdentifier.Split('.', StringSplitOptions.RemoveEmptyEntries);
             string propertyName = names[names.Length - 1]; // last part of identifier
 
-            foreach (ApplicationObject entity in entities)
+            foreach (TableNode table in tables)
             {
-                List<MetadataProperty> properties = ScriptingService.MatchProperties(entity, propertyName);
+                List<MetadataProperty> properties = ScriptingService.MatchProperties(table.ApplicationObject, propertyName);
 
                 foreach (MetadataProperty property in properties)
                 {
-                    CompletionItem completion = new CompletionItem(property.Name, context.FragmentOffset, context.FragmentLength);
+                    CompletionItem completion = new CompletionItem(
+                        (string.IsNullOrWhiteSpace(table.Alias)
+                                        ? property.Name
+                                        : table.Alias + "." + property.Name),
+                        context.FragmentOffset, context.FragmentLength);
 
                     completion.ItemType = Enum.GetName(typeof(PropertyPurpose), property.Purpose);
 
@@ -165,29 +273,26 @@ namespace DaJet.Data.Scripting
                 return null;
             }
 
-            TSqlParserToken keyword = TakeFirstKeywordToLeft(script.ScriptTokenStream, token);
-            if (keyword == null)
+            CompletionContext context = new CompletionContext(offset, token.Offset, token.Text.Length);
+
+            if (token.TokenType == TSqlTokenType.Identifier)
             {
-                return null;
+                context.Keyword = MatchKeyword(token.Text);
             }
 
-            if (keyword.TokenType == TSqlTokenType.From || keyword.TokenType == TSqlTokenType.Join)
+            TSqlParserToken keyword = TakeFirstKeywordToLeft(script.ScriptTokenStream, token);
+            if (keyword != null && (keyword.TokenType == TSqlTokenType.From || keyword.TokenType == TSqlTokenType.Join))
             {
                 string identifier = TryGetFullIdentifier(script.ScriptTokenStream, token);
-
-                int tokenOffset = token.Offset;
-                int tokenLength = token.Text.Length;
-
                 if (string.IsNullOrWhiteSpace(identifier)) // token.TokenType == TSqlTokenType.WhiteSpace
                 {
-                    tokenOffset++;
-                    tokenLength = 0;
+                    context.FragmentOffset++;
+                    context.FragmentLength = 0;
                 }
-
-                return new CompletionContext(null, offset, tokenOffset, tokenLength, null, new TableNode() { Name = identifier });
+                context.SyntaxNode = new TableNode() { Name = identifier };
             }
 
-            return null;
+            return context;
         }
         private bool IsFirstTokenToLeft(int cursorOffset, int tokenOffset, int tokenLength)
         {

@@ -22,7 +22,7 @@ namespace DaJet.Data.Scripting.Wpf
         private ToolTip toolTip = new ToolTip();
         private CompletionWindow completionWindow;
 
-        private readonly IErrorHandler ErrorHandler;
+        private readonly IParserErrorHandler ErrorHandler;
         private readonly IScriptingService ScriptingService;
 
         #region "Icons"
@@ -36,6 +36,7 @@ namespace DaJet.Data.Scripting.Wpf
         private const string MEASURE_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/Ресурс.png";
         private const string PROPERTY_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/Реквизит.png";
         private const string DIMENSION_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/Измерение.png";
+        private const string KEYWORD_ICON_PATH = "pack://application:,,,/DaJet.Data.Scripting.Wpf;component/images/KeywordIntellisense.png";
 
         private readonly BitmapImage CATALOG_ICON = new BitmapImage(new Uri(CATALOG_ICON_PATH));
         private readonly BitmapImage DOCUMENT_ICON = new BitmapImage(new Uri(DOCUMENT_ICON_PATH));
@@ -46,10 +47,11 @@ namespace DaJet.Data.Scripting.Wpf
         private readonly BitmapImage MEASURE_ICON = new BitmapImage(new Uri(MEASURE_ICON_PATH));
         private readonly BitmapImage PROPERTY_ICON = new BitmapImage(new Uri(PROPERTY_ICON_PATH));
         private readonly BitmapImage DIMENSION_ICON = new BitmapImage(new Uri(DIMENSION_ICON_PATH));
+        private readonly BitmapImage KEYWORD_ICON = new BitmapImage(new Uri(KEYWORD_ICON_PATH));
 
         #endregion
 
-        public ScriptingClient(IScriptingService service, IErrorHandler errorHandler)
+        public ScriptingClient(IScriptingService service, IParserErrorHandler errorHandler)
         {
             ScriptingService = service;
             ErrorHandler = errorHandler;
@@ -114,6 +116,7 @@ namespace DaJet.Data.Scripting.Wpf
             else if (itemType == "Dimension") return DIMENSION_ICON;
             else if (itemType == "System") return PROPERTY_ICON;
             else if (itemType == "Hierarchy") return PROPERTY_ICON;
+            else if (itemType == "Keyword") return KEYWORD_ICON;
             return DEFAULT_ICON;
         }
         public void TextArea_TextEnteringHandler(object sender, TextCompositionEventArgs e)

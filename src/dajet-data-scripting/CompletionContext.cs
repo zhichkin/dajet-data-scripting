@@ -5,22 +5,17 @@ namespace DaJet.Data.Scripting
 {
     internal sealed class CompletionContext
     {
-        internal CompletionContext(ScriptNode scriptNode,
-            int cursorOffset, int fragmentOffset, int fragmentLength,
-            TSqlFragment fragment, SyntaxNode syntaxNode)
+        internal CompletionContext(int cursorOffset, int fragmentOffset, int fragmentLength)
         {
-            ScriptNode = scriptNode;
             CursorOffset = cursorOffset;
             FragmentOffset = fragmentOffset;
             FragmentLength = fragmentLength;
-            Fragment = fragment;
-            SyntaxNode = syntaxNode;
         }
-        internal int CursorOffset { get; }
-        internal int FragmentOffset { get; }
-        internal int FragmentLength { get; }
-        internal ScriptNode ScriptNode { get; }
-        internal TSqlFragment Fragment { get; }
-        internal SyntaxNode SyntaxNode { get; }
+        internal int CursorOffset { get; set; }
+        internal int FragmentOffset { get; set; }
+        internal int FragmentLength { get; set; }
+        internal string Keyword { get; set; }
+        internal SyntaxNode SyntaxNode { get; set; }
+        internal TSqlFragment Fragment { get; set; }
     }
 }
