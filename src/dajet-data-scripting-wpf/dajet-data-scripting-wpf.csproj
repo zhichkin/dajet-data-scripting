@@ -53,10 +53,7 @@ The DaJet.Data.Scripting library is used as a language server.</PackageReleaseNo
 
   <ItemGroup>
     <PackageReference Include="AvalonEdit" Version="6.1.2.30" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\dajet-data-scripting\dajet-data-scripting.csproj" />
+    <PackageReference Include="DaJet.Data.Scripting" Version="1.1.0" />
   </ItemGroup>
 
 </Project>
